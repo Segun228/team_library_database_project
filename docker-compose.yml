@@ -1,0 +1,41 @@
+name: library_db_project
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: library_db
+    environment:
+      POSTGRES_DB: library
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./01_create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql
+      - ./02_indexes.sql:/docker-entrypoint-initdb.d/02_indexes.sql
+      - ./03_triggers.sql:/docker-entrypoint-initdb.d/03_triggers.sql
+      - ./04_roles.sql:/docker-entrypoint-initdb.d/04_roles.sql
+      - ./05_seed_data.sql:/docker-entrypoint-initdb.d/05_seed_data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d library"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: library_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@library.ru
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
