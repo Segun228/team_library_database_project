@@ -72,6 +72,26 @@ CREATE TABLE IF NOT EXISTS Book (
     FOREIGN KEY (publisher_id) REFERENCES Publisher(id)
 );
 
+-- 6.1. Form (Формы изданий)
+CREATE TABLE IF NOT EXISTS Form (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6.2. BookForm (Связь книг и форм изданий)
+CREATE TABLE IF NOT EXISTS BookForm (
+    id SERIAL PRIMARY KEY,
+    book_id INT NOT NULL,
+    form_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (book_id) REFERENCES Book(id) ON DELETE CASCADE,
+    FOREIGN KEY (form_id) REFERENCES Form(id) ON DELETE CASCADE,
+    UNIQUE(book_id, form_id)
+);
+
 -- 7. BookComposition
 CREATE TABLE IF NOT EXISTS BookComposition (
     id SERIAL PRIMARY KEY,

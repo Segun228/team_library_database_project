@@ -254,6 +254,14 @@ CREATE TRIGGER trigger_book_updated_at
     BEFORE UPDATE ON Book
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER trigger_form_updated_at
+    BEFORE UPDATE ON Form
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_bookform_updated_at
+    BEFORE UPDATE ON BookForm
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER trigger_bookcomposition_updated_at
     BEFORE UPDATE ON BookComposition
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

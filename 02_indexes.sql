@@ -41,6 +41,16 @@ CREATE INDEX idx_book_page_count ON Book(page_count);
 CREATE INDEX idx_book_created_at ON Book(created_at);
 CREATE INDEX idx_book_title_publisher ON Book(title, publisher_id);
 
+-- Индексы для таблицы Form
+CREATE INDEX idx_form_name ON Form(name);
+CREATE INDEX idx_form_created_at ON Form(created_at);
+
+-- Индексы для таблицы BookForm
+CREATE INDEX idx_bookform_book_id ON BookForm(book_id);
+CREATE INDEX idx_bookform_form_id ON BookForm(form_id);
+CREATE INDEX idx_bookform_book_id_form_id ON BookForm(book_id, form_id);
+CREATE INDEX idx_bookform_created_at ON BookForm(created_at);
+
 -- Индексы для таблицы BookComposition
 CREATE INDEX idx_bookcomposition_book_id ON BookComposition(book_id);
 CREATE INDEX idx_bookcomposition_composition_id ON BookComposition(composition_id);
