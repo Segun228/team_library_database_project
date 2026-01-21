@@ -16,15 +16,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для автоматического изменения статуса экземпляра при выдаче/возврате
-CREATE OR REPLACE FUNCTION update_copy_status_on_reception()
+-- Функция для автоматического изменения статуса экземпляра при выдаче
+CREATE OR REPLACE FUNCTION update_copy_status_on_loan()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.operation_type = 'borrow' THEN
-        UPDATE Copy SET copy_status_id = 2 WHERE id = NEW.copy_id;
-    ELSIF NEW.operation_type = 'return' THEN
-        UPDATE Copy SET copy_status_id = 1 WHERE id = NEW.copy_id;
-    END IF;
+    -- При выдаче меняем статус на "выдан" (id=2)
+    UPDATE Copy SET copy_status_id = 2 WHERE id = NEW.copy_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Функция для автоматического изменения статуса экземпляра при возврате
+CREATE OR REPLACE FUNCTION update_copy_status_on_return()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- При возврате меняем статус на "доступен" (id=1)
+    UPDATE Copy SET copy_status_id = 1 WHERE id = (SELECT copy_id FROM Loan WHERE id = NEW.loan_id);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -35,34 +42,48 @@ RETURNS TRIGGER AS $$
 DECLARE
     current_status INT;
 BEGIN
-    IF NEW.operation_type = 'borrow' THEN
-        SELECT copy_status_id INTO current_status FROM Copy WHERE id = NEW.copy_id;
-        IF current_status != 1 THEN
-            RAISE EXCEPTION 'Экземпляр книги недоступен для выдачи (текущий статус: %)', current_status;
-        END IF;
+    SELECT copy_status_id INTO current_status FROM Copy WHERE id = NEW.copy_id;
+    IF current_status != 1 THEN
+        RAISE EXCEPTION 'Экземпляр книги недоступен для выдачи (текущий статус: %)', current_status;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для автоматического расчета штрафа при просрочке
-CREATE OR REPLACE FUNCTION calculate_fine_on_return()
+-- Функция для автоматического создания штрафа при просрочке возврата
+CREATE OR REPLACE FUNCTION create_fine_on_overdue()
 RETURNS TRIGGER AS $$
 DECLARE
+    loan_due_date DATE;
     days_overdue INT;
-    fine_per_day DECIMAL(10,2) := 10.00;
+    overdue_reason_id INT;
 BEGIN
-    IF NEW.operation_type = 'return' AND NEW.due_date IS NOT NULL THEN
-        days_overdue := NEW.operation_date - NEW.due_date;
+    -- Получаем дату возврата из Loan
+    SELECT due_date INTO loan_due_date FROM Loan WHERE id = NEW.loan_id;
+    
+    IF loan_due_date IS NOT NULL THEN
+        days_overdue := CURRENT_DATE - loan_due_date;
         IF days_overdue > 0 THEN
-            NEW.fine_amount := days_overdue * fine_per_day;
+            -- Получаем ID причины "Просрочка возврата"
+            SELECT id INTO overdue_reason_id FROM FineReason WHERE name = 'Просрочка возврата';
+            -- Если причины нет, пропускаем создание штрафа (причины должны быть предопределены)
+            IF overdue_reason_id IS NULL THEN
+                RETURN NEW;
+            END IF;
+            
+            -- Создаем штраф только если его еще нет
+            IF NOT EXISTS (SELECT 1 FROM Fine WHERE loan_id = NEW.loan_id) THEN
+                INSERT INTO Fine (loan_id, reason_id, notes)
+                VALUES (NEW.loan_id, overdue_reason_id, 
+                        'Просрочка возврата на ' || days_overdue || ' дней');
+            END IF;
         END IF;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для валидации email (для таблиц Reader и Employees)
+-- Функция для валидации email
 CREATE OR REPLACE FUNCTION validate_email()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -73,7 +94,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для валидации contact_email (для таблицы Publisher)
+-- Функция для валидации contact_email
 CREATE OR REPLACE FUNCTION validate_contact_email()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -110,34 +131,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для проверки года написания произведения
-CREATE OR REPLACE FUNCTION check_year_written()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.year_written IS NOT NULL THEN
-        IF NEW.year_written < -3000 OR NEW.year_written > EXTRACT(YEAR FROM CURRENT_DATE) + 1 THEN
-            RAISE EXCEPTION 'Некорректный год написания: %', NEW.year_written;
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Функция для логирования изменений в книгах
-CREATE OR REPLACE FUNCTION log_book_changes()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF TG_OP = 'UPDATE' THEN
-        RAISE NOTICE 'Книга % обновлена: % -> %', OLD.id, OLD.title, NEW.title;
-    ELSIF TG_OP = 'DELETE' THEN
-        RAISE NOTICE 'Книга % удалена: %', OLD.id, OLD.title;
-    ELSIF TG_OP = 'INSERT' THEN
-        RAISE NOTICE 'Добавлена новая книга: % (ID: %)', NEW.title, NEW.id;
-    END IF;
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
 -- Функция для проверки количества страниц
 CREATE OR REPLACE FUNCTION check_page_count()
 RETURNS TRIGGER AS $$
@@ -149,29 +142,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для автоматической установки даты регистрации читателя
-CREATE OR REPLACE FUNCTION set_reader_registration_date()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.registration_date IS NULL THEN
-        NEW.registration_date := CURRENT_DATE;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Функция для проверки уникальности инвентарного номера в пределах года
-CREATE OR REPLACE FUNCTION check_inventory_number_format()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.inventory_number !~ '^[A-Za-z0-9-]+$' THEN
-        RAISE EXCEPTION 'Инвентарный номер может содержать только буквы, цифры и дефис';
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Функция для проверки телефона (для Reader и Employees)
+-- Функция для проверки телефона
 CREATE OR REPLACE FUNCTION check_phone_format()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -182,7 +153,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для проверки contact_phone (для Publisher)
+-- Функция для проверки contact_phone
 CREATE OR REPLACE FUNCTION check_contact_phone_format()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -193,34 +164,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для предотвращения удаления выданных экземпляров
-CREATE OR REPLACE FUNCTION prevent_delete_borrowed_copy()
+-- Функция для проверки даты выдачи
+CREATE OR REPLACE FUNCTION check_loan_dates()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF OLD.copy_status_id = 2 THEN
-        RAISE EXCEPTION 'Нельзя удалить выданный экземпляр книги';
-    END IF;
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
--- Функция для проверки даты операции
-CREATE OR REPLACE FUNCTION check_operation_date()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.operation_date > CURRENT_DATE THEN
-        RAISE EXCEPTION 'Дата операции не может быть в будущем';
+    -- Проверяем только что due_date не раньше даты создания выдачи
+    -- Разрешаем исторические выдачи (с датами в прошлом) для тестовых данных
+    -- Но не позволяем due_date быть раньше created_at
+    IF NEW.due_date IS NOT NULL THEN
+        IF NEW.created_at IS NOT NULL AND NEW.due_date < DATE(NEW.created_at) THEN
+            RAISE EXCEPTION 'Дата возврата не может быть раньше даты выдачи';
+        END IF;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Функция для автоматической установки due_date
-CREATE OR REPLACE FUNCTION set_default_due_date()
+-- Функция для предотвращения двойного возврата
+CREATE OR REPLACE FUNCTION prevent_double_return()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.operation_type = 'borrow' AND NEW.due_date IS NULL THEN
-        NEW.due_date := NEW.operation_date + INTERVAL '14 days';
+    IF EXISTS (SELECT 1 FROM Return WHERE loan_id = NEW.loan_id) THEN
+        RAISE EXCEPTION 'Книга уже была возвращена';
     END IF;
     RETURN NEW;
 END;
@@ -230,12 +195,64 @@ $$ LANGUAGE plpgsql;
 -- ТРИГГЕРЫ ДЛЯ ОБНОВЛЕНИЯ updated_at
 -- ============================================
 
-CREATE TRIGGER trigger_genre_updated_at
-    BEFORE UPDATE ON Genre
+CREATE TRIGGER trigger_employeestatus_updated_at
+    BEFORE UPDATE ON EmployeeStatus
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_roles_updated_at
+    BEFORE UPDATE ON Roles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_employee_updated_at
+    BEFORE UPDATE ON Employee
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_readerstatus_updated_at
+    BEFORE UPDATE ON ReaderStatus
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_reader_updated_at
+    BEFORE UPDATE ON Reader
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_copystatus_updated_at
+    BEFORE UPDATE ON CopyStatus
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trigger_publisher_updated_at
     BEFORE UPDATE ON Publisher
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_book_updated_at
+    BEFORE UPDATE ON Book
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_copy_updated_at
+    BEFORE UPDATE ON Copy
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_tags_updated_at
+    BEFORE UPDATE ON Tags
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_booktag_updated_at
+    BEFORE UPDATE ON BookTag
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_form_updated_at
+    BEFORE UPDATE ON Form
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_bookform_updated_at
+    BEFORE UPDATE ON BookForm
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_genre_updated_at
+    BEFORE UPDATE ON Genre
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_bookgenre_updated_at
+    BEFORE UPDATE ON BookGenre
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trigger_author_updated_at
@@ -250,94 +267,59 @@ CREATE TRIGGER trigger_authorship_updated_at
     BEFORE UPDATE ON Authorship
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_book_updated_at
-    BEFORE UPDATE ON Book
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_form_updated_at
-    BEFORE UPDATE ON Form
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_bookform_updated_at
-    BEFORE UPDATE ON BookForm
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER trigger_bookcomposition_updated_at
     BEFORE UPDATE ON BookComposition
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_tags_updated_at
-    BEFORE UPDATE ON Tags
+CREATE TRIGGER trigger_loan_updated_at
+    BEFORE UPDATE ON Loan
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_booktag_updated_at
-    BEFORE UPDATE ON BookTag
+CREATE TRIGGER trigger_return_updated_at
+    BEFORE UPDATE ON Return
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_bookgenre_updated_at
-    BEFORE UPDATE ON BookGenre
+CREATE TRIGGER trigger_finereason_updated_at
+    BEFORE UPDATE ON FineReason
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_copystatus_updated_at
-    BEFORE UPDATE ON CopyStatus
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_copy_updated_at
-    BEFORE UPDATE ON Copy
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_readerstatus_updated_at
-    BEFORE UPDATE ON ReaderStatus
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_reader_updated_at
-    BEFORE UPDATE ON Reader
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_roles_updated_at
-    BEFORE UPDATE ON Roles
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_employeestatus_updated_at
-    BEFORE UPDATE ON EmployeeStatus
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_employees_updated_at
-    BEFORE UPDATE ON Employees
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trigger_reception_updated_at
-    BEFORE UPDATE ON Reception
+CREATE TRIGGER trigger_fine_updated_at
+    BEFORE UPDATE ON Fine
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
 -- ТРИГГЕРЫ ДЛЯ БИЗНЕС-ЛОГИКИ
 -- ============================================
 
--- Триггер изменения статуса экземпляра при выдаче/возврате
-CREATE TRIGGER trigger_update_copy_status
-    AFTER INSERT ON Reception
-    FOR EACH ROW EXECUTE FUNCTION update_copy_status_on_reception();
+-- Триггер изменения статуса экземпляра при выдаче
+CREATE TRIGGER trigger_update_copy_status_on_loan
+    AFTER INSERT ON Loan
+    FOR EACH ROW EXECUTE FUNCTION update_copy_status_on_loan();
 
 -- Триггер проверки доступности экземпляра
 CREATE TRIGGER trigger_check_copy_availability
-    BEFORE INSERT ON Reception
+    BEFORE INSERT ON Loan
     FOR EACH ROW EXECUTE FUNCTION check_copy_availability();
 
--- Триггер расчета штрафа
-CREATE TRIGGER trigger_calculate_fine
-    BEFORE INSERT ON Reception
-    FOR EACH ROW EXECUTE FUNCTION calculate_fine_on_return();
+-- Триггер изменения статуса экземпляра при возврате
+CREATE TRIGGER trigger_update_copy_status_on_return
+    AFTER INSERT ON Return
+    FOR EACH ROW EXECUTE FUNCTION update_copy_status_on_return();
 
--- Триггер установки due_date по умолчанию
-CREATE TRIGGER trigger_set_due_date
-    BEFORE INSERT ON Reception
-    FOR EACH ROW EXECUTE FUNCTION set_default_due_date();
+-- Триггер создания штрафа при просрочке
+CREATE TRIGGER trigger_create_fine_on_overdue
+    AFTER INSERT ON Return
+    FOR EACH ROW EXECUTE FUNCTION create_fine_on_overdue();
 
--- Триггер проверки даты операции
-CREATE TRIGGER trigger_check_operation_date
-    BEFORE INSERT OR UPDATE ON Reception
-    FOR EACH ROW EXECUTE FUNCTION check_operation_date();
+-- Триггер предотвращения двойного возврата
+CREATE TRIGGER trigger_prevent_double_return
+    BEFORE INSERT ON Return
+    FOR EACH ROW EXECUTE FUNCTION prevent_double_return();
+
+-- Триггер проверки даты выдачи
+CREATE TRIGGER trigger_check_loan_dates
+    BEFORE INSERT OR UPDATE ON Loan
+    FOR EACH ROW EXECUTE FUNCTION check_loan_dates();
 
 -- ============================================
 -- ТРИГГЕРЫ ВАЛИДАЦИИ
@@ -349,7 +331,7 @@ CREATE TRIGGER trigger_validate_reader_email
     FOR EACH ROW EXECUTE FUNCTION validate_email();
 
 CREATE TRIGGER trigger_validate_employee_email
-    BEFORE INSERT OR UPDATE ON Employees
+    BEFORE INSERT OR UPDATE ON Employee
     FOR EACH ROW EXECUTE FUNCTION validate_email();
 
 CREATE TRIGGER trigger_validate_publisher_email
@@ -362,7 +344,7 @@ CREATE TRIGGER trigger_validate_reader_phone
     FOR EACH ROW EXECUTE FUNCTION check_phone_format();
 
 CREATE TRIGGER trigger_validate_employee_phone
-    BEFORE INSERT OR UPDATE ON Employees
+    BEFORE INSERT OR UPDATE ON Employee
     FOR EACH ROW EXECUTE FUNCTION check_phone_format();
 
 CREATE TRIGGER trigger_validate_publisher_phone
@@ -379,43 +361,7 @@ CREATE TRIGGER trigger_check_publication_year
     BEFORE INSERT OR UPDATE ON Book
     FOR EACH ROW EXECUTE FUNCTION check_publication_year();
 
--- Триггер проверки года написания
-CREATE TRIGGER trigger_check_year_written
-    BEFORE INSERT OR UPDATE ON Composition
-    FOR EACH ROW EXECUTE FUNCTION check_year_written();
-
 -- Триггер проверки количества страниц
 CREATE TRIGGER trigger_check_page_count
     BEFORE INSERT OR UPDATE ON Book
     FOR EACH ROW EXECUTE FUNCTION check_page_count();
-
--- Триггер проверки инвентарного номера
-CREATE TRIGGER trigger_check_inventory_number
-    BEFORE INSERT OR UPDATE ON Copy
-    FOR EACH ROW EXECUTE FUNCTION check_inventory_number_format();
-
--- Триггер установки даты регистрации читателя
-CREATE TRIGGER trigger_set_registration_date
-    BEFORE INSERT ON Reader
-    FOR EACH ROW EXECUTE FUNCTION set_reader_registration_date();
-
--- Триггер предотвращения удаления выданных экземпляров
-CREATE TRIGGER trigger_prevent_delete_borrowed
-    BEFORE DELETE ON Copy
-    FOR EACH ROW EXECUTE FUNCTION prevent_delete_borrowed_copy();
-
--- ============================================
--- ТРИГГЕРЫ ЛОГИРОВАНИЯ
--- ============================================
-
-CREATE TRIGGER trigger_log_book_insert
-    AFTER INSERT ON Book
-    FOR EACH ROW EXECUTE FUNCTION log_book_changes();
-
-CREATE TRIGGER trigger_log_book_update
-    AFTER UPDATE ON Book
-    FOR EACH ROW EXECUTE FUNCTION log_book_changes();
-
-CREATE TRIGGER trigger_log_book_delete
-    AFTER DELETE ON Book
-    FOR EACH ROW EXECUTE FUNCTION log_book_changes();

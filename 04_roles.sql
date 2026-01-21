@@ -101,87 +101,92 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO library_admin;
 -- ============================================
 -- ПРАВА ДЛЯ БИБЛИОТЕКАРЯ
 -- ============================================
-GRANT SELECT, INSERT, UPDATE ON Genre TO librarian;
+GRANT SELECT, INSERT, UPDATE ON EmployeeStatus TO librarian;
+GRANT SELECT ON Roles TO librarian;
+GRANT SELECT ON Employee TO librarian;
+GRANT SELECT, INSERT, UPDATE ON ReaderStatus TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Reader TO librarian;
+GRANT SELECT ON CopyStatus TO librarian;
 GRANT SELECT, INSERT, UPDATE ON Publisher TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Book TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Copy TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Tags TO librarian;
+GRANT SELECT, INSERT, UPDATE ON BookTag TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Form TO librarian;
+GRANT SELECT, INSERT, UPDATE ON BookForm TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Genre TO librarian;
+GRANT SELECT, INSERT, UPDATE ON BookGenre TO librarian;
 GRANT SELECT, INSERT, UPDATE ON Author TO librarian;
 GRANT SELECT, INSERT, UPDATE ON Composition TO librarian;
 GRANT SELECT, INSERT, UPDATE ON Authorship TO librarian;
-GRANT SELECT, INSERT, UPDATE ON Book TO librarian;
 GRANT SELECT, INSERT, UPDATE ON BookComposition TO librarian;
-GRANT SELECT, INSERT, UPDATE ON Tags TO librarian;
-GRANT SELECT, INSERT, UPDATE ON BookTag TO librarian;
-GRANT SELECT, INSERT, UPDATE ON BookGenre TO librarian;
-GRANT SELECT, INSERT, UPDATE ON Form TO librarian;
-GRANT SELECT, INSERT, UPDATE ON BookForm TO librarian;
-GRANT SELECT ON CopyStatus TO librarian;
-GRANT SELECT, INSERT, UPDATE ON Copy TO librarian;
-GRANT SELECT ON ReaderStatus TO librarian;
-GRANT SELECT, INSERT, UPDATE ON Reader TO librarian;
-GRANT SELECT ON Roles TO librarian;
-GRANT SELECT ON EmployeeStatus TO librarian;
-GRANT SELECT ON Employees TO librarian;
-GRANT SELECT, INSERT, UPDATE ON Reception TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Loan TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Return TO librarian;
+GRANT SELECT ON FineReason TO librarian;
+GRANT SELECT, INSERT, UPDATE ON Fine TO librarian;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO librarian;
 
 -- ============================================
 -- ПРАВА ДЛЯ СТАРШЕГО БИБЛИОТЕКАРЯ
 -- ============================================
-GRANT SELECT, INSERT, UPDATE, DELETE ON Genre TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON EmployeeStatus TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE ON Roles TO senior_librarian;
+GRANT SELECT ON Employee TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ReaderStatus TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Reader TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE ON CopyStatus TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON Publisher TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Book TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Copy TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Tags TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON BookTag TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Form TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON BookForm TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Genre TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON BookGenre TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON Author TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON Composition TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON Authorship TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON Book TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON BookComposition TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON Tags TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON BookTag TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON BookGenre TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON Form TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON BookForm TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE ON CopyStatus TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON Copy TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE ON ReaderStatus TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON Reader TO senior_librarian;
-GRANT SELECT ON Roles TO senior_librarian;
-GRANT SELECT ON EmployeeStatus TO senior_librarian;
-GRANT SELECT ON Employees TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON Reception TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Loan TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Return TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE ON FineReason TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON Fine TO senior_librarian;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO senior_librarian;
 
 -- ============================================
 -- ПРАВА ДЛЯ ЧИТАТЕЛЯ (только просмотр каталога)
 -- ============================================
-GRANT SELECT ON Genre TO reader_role;
 GRANT SELECT ON Publisher TO reader_role;
+GRANT SELECT ON Book TO reader_role;
+GRANT SELECT ON Tags TO reader_role;
+GRANT SELECT ON BookTag TO reader_role;
+GRANT SELECT ON Form TO reader_role;
+GRANT SELECT ON BookForm TO reader_role;
+GRANT SELECT ON Genre TO reader_role;
+GRANT SELECT ON BookGenre TO reader_role;
 GRANT SELECT ON Author TO reader_role;
 GRANT SELECT ON Composition TO reader_role;
 GRANT SELECT ON Authorship TO reader_role;
-GRANT SELECT ON Book TO reader_role;
 GRANT SELECT ON BookComposition TO reader_role;
-GRANT SELECT ON Tags TO reader_role;
-GRANT SELECT ON BookTag TO reader_role;
-GRANT SELECT ON BookGenre TO reader_role;
-GRANT SELECT ON Form TO reader_role;
-GRANT SELECT ON BookForm TO reader_role;
 GRANT SELECT ON CopyStatus TO reader_role;
 
 -- ============================================
 -- ПРАВА ДЛЯ КАТАЛОГИЗАТОРА
 -- ============================================
-GRANT SELECT, INSERT, UPDATE ON Genre TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Publisher TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON Book TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON Copy TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON Tags TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON BookTag TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON Form TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON BookForm TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON Genre TO cataloger;
+GRANT SELECT, INSERT, UPDATE ON BookGenre TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Author TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Composition TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Authorship TO cataloger;
-GRANT SELECT, INSERT, UPDATE ON Book TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON BookComposition TO cataloger;
-GRANT SELECT, INSERT, UPDATE ON Tags TO cataloger;
-GRANT SELECT, INSERT, UPDATE ON BookTag TO cataloger;
-GRANT SELECT, INSERT, UPDATE ON BookGenre TO cataloger;
-GRANT SELECT, INSERT, UPDATE ON Form TO cataloger;
-GRANT SELECT, INSERT, UPDATE ON BookForm TO cataloger;
-GRANT SELECT ON CopyStatus TO cataloger;
-GRANT SELECT, INSERT, UPDATE ON Copy TO cataloger;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO cataloger;
 
 -- ============================================
@@ -203,20 +208,12 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 -- ============================================
 -- ПРАВА ДЛЯ ВВОДА ДАННЫХ
 -- ============================================
-GRANT SELECT, INSERT ON Genre TO data_entry;
 GRANT SELECT, INSERT ON Publisher TO data_entry;
-GRANT SELECT, INSERT ON Author TO data_entry;
-GRANT SELECT, INSERT ON Composition TO data_entry;
-GRANT SELECT, INSERT ON Authorship TO data_entry;
 GRANT SELECT, INSERT ON Book TO data_entry;
-GRANT SELECT, INSERT ON BookComposition TO data_entry;
-GRANT SELECT, INSERT ON Tags TO data_entry;
-GRANT SELECT, INSERT ON BookTag TO data_entry;
-GRANT SELECT, INSERT ON BookGenre TO data_entry;
-GRANT SELECT, INSERT ON Form TO data_entry;
-GRANT SELECT, INSERT ON BookForm TO data_entry;
 GRANT SELECT, INSERT ON Copy TO data_entry;
 GRANT SELECT, INSERT ON Reader TO data_entry;
+GRANT SELECT, INSERT ON Author TO data_entry;
+GRANT SELECT, INSERT ON Composition TO data_entry;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO data_entry;
 
 -- ============================================
@@ -224,7 +221,9 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO data_entry;
 -- ============================================
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO supervisor;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO supervisor;
-GRANT DELETE ON Reception TO supervisor;
+GRANT DELETE ON Loan TO supervisor;
+GRANT DELETE ON Return TO supervisor;
+GRANT DELETE ON Fine TO supervisor;
 
 -- ============================================
 -- ПРАВА ДЛЯ ГОСТЯ (минимальные)
@@ -238,7 +237,7 @@ GRANT SELECT ON Tags TO guest;
 -- ПРАВА ДЛЯ МЕНЕДЖЕРА
 -- ============================================
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO manager;
-GRANT SELECT, INSERT, UPDATE ON Employees TO manager;
+GRANT SELECT, INSERT, UPDATE ON Employee TO manager;
 GRANT SELECT, INSERT, UPDATE ON Roles TO manager;
 GRANT SELECT, INSERT, UPDATE ON EmployeeStatus TO manager;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO manager;
