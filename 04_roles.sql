@@ -207,6 +207,7 @@ GRANT SELECT ON Authorship TO reader_role;
 GRANT SELECT ON BookComposition TO reader_role;
 GRANT SELECT ON Copy TO reader_role;
 GRANT SELECT ON CopyStatus TO reader_role;
+-- Права на представления предоставляются в файле 07_views.sql
 
 -- ============================================
 -- ПРАВА ДЛЯ КАТАЛОГИЗАТОРА
@@ -233,7 +234,7 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO cataloger;
 -- ============================================
 -- ПРАВА ДЛЯ АНАЛИТИКА (только чтение)
 -- ============================================
--- Только чтение всех таблиц для формирования отчетов и анализа
+-- Только чтение всех таблиц и представлений для формирования отчетов и анализа
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst;
 
 -- ============================================
@@ -280,6 +281,7 @@ GRANT SELECT ON Genre TO guest;
 GRANT SELECT ON Author TO guest;
 GRANT SELECT ON Book TO guest;
 GRANT SELECT ON Tags TO guest;
+-- Права на представления предоставляются в файле 07_views.sql
 
 -- ============================================
 -- ПРАВА ДЛЯ МЕНЕДЖЕРА
