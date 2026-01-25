@@ -452,9 +452,9 @@ ALTER TABLE Loan ENABLE TRIGGER trigger_check_loan_dates;
 -- 22. ВОЗВРАТЫ (RETURN)
 -- ============================================
 -- Отключаем триггер предотвращения двойного возврата для загрузки
-ALTER TABLE Return DISABLE TRIGGER trigger_prevent_double_return;
+ALTER TABLE BookReturn DISABLE TRIGGER trigger_prevent_double_return;
 
-INSERT INTO Return (loan_id, employee_id, notes) VALUES
+INSERT INTO BookReturn (loan_id, employee_id, notes) VALUES
 (5, 2, 'Возврат в срок'),
 (6, 3, 'Возврат в срок'),
 (7, 2, 'Возврат в срок'),
@@ -463,7 +463,7 @@ INSERT INTO Return (loan_id, employee_id, notes) VALUES
 (10, 2, 'Просрочка 6 дней');
 
 -- Включаем триггер обратно
-ALTER TABLE Return ENABLE TRIGGER trigger_prevent_double_return;
+ALTER TABLE BookReturn ENABLE TRIGGER trigger_prevent_double_return;
 
 -- ============================================
 -- 23. ШТРАФЫ

@@ -36,7 +36,7 @@ INSERT INTO Loan (copy_id, reader_id, employee_id, due_date, notes)
 VALUES (1, 1, 2, CURRENT_DATE + INTERVAL '14 days', 'Выдача по абонементу');
 
 -- Возврат книги
-INSERT INTO Return (loan_id, employee_id, notes)
+INSERT INTO BookReturn (loan_id, employee_id, notes)
 VALUES (1, 2, 'Возврат в срок');
 
 -- ============================================
@@ -97,7 +97,7 @@ JOIN Reader r ON l.reader_id = r.id
 JOIN Copy c ON l.copy_id = c.id
 JOIN Book b ON c.book_id = b.id
 WHERE NOT EXISTS (
-    SELECT 1 FROM Return ret WHERE ret.loan_id = l.id
+    SELECT 1 FROM BookReturn ret WHERE ret.loan_id = l.id
 )
 ORDER BY l.due_date;
 
@@ -137,7 +137,7 @@ JOIN Book b ON c.book_id = b.id
 JOIN BookGenre bg ON b.id = bg.book_id
 JOIN Genre g ON bg.genre_id = g.id
 WHERE g.name = 'Фантастика'
-AND NOT EXISTS (SELECT 1 FROM Return ret WHERE ret.loan_id = l.id)
+AND NOT EXISTS (SELECT 1 FROM BookReturn ret WHERE ret.loan_id = l.id)
 ORDER BY r.last_name;
 
 -- Вывод списка выдач с указанием количества операций для каждой книги
@@ -222,7 +222,7 @@ SELECT
     e.first_name || ' ' || e.last_name AS employee_name,
     l.due_date,
     CASE 
-        WHEN EXISTS (SELECT 1 FROM Return ret WHERE ret.loan_id = l.id) THEN 'Возвращена'
+        WHEN EXISTS (SELECT 1 FROM BookReturn ret WHERE ret.loan_id = l.id) THEN 'Возвращена'
         WHEN l.due_date < CURRENT_DATE THEN 'Просрочена'
         ELSE 'На руках'
     END AS status
@@ -276,7 +276,7 @@ JOIN Reader r ON l.reader_id = r.id
 JOIN Copy c ON l.copy_id = c.id
 JOIN Book b ON c.book_id = b.id
 WHERE l.due_date < CURRENT_DATE
-AND NOT EXISTS (SELECT 1 FROM Return ret WHERE ret.loan_id = l.id)
+AND NOT EXISTS (SELECT 1 FROM BookReturn ret WHERE ret.loan_id = l.id)
 ORDER BY days_overdue DESC;
 
 -- Количество произведений у каждого автора

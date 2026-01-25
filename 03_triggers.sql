@@ -19,9 +19,13 @@ $$ LANGUAGE plpgsql;
 -- Функция для автоматического изменения статуса экземпляра при выдаче
 CREATE OR REPLACE FUNCTION update_copy_status_on_loan()
 RETURNS TRIGGER AS $$
+DECLARE
+    issued_status_id INT;
 BEGIN
-    -- При выдаче меняем статус на "выдан" (id=2)
-    UPDATE Copy SET copy_status_id = 2 WHERE id = NEW.copy_id;
+    -- Получаем ID статуса "Выдан"
+    SELECT id INTO issued_status_id FROM CopyStatus WHERE name = 'Выдан';
+    -- При выдаче меняем статус на "Выдан"
+    UPDATE Copy SET copy_status_id = issued_status_id WHERE id = NEW.copy_id;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -29,22 +33,32 @@ $$ LANGUAGE plpgsql;
 -- Функция для автоматического изменения статуса экземпляра при возврате
 CREATE OR REPLACE FUNCTION update_copy_status_on_return()
 RETURNS TRIGGER AS $$
+DECLARE
+    available_status_id INT;
 BEGIN
-    -- При возврате меняем статус на "доступен" (id=1)
-    UPDATE Copy SET copy_status_id = 1 WHERE id = (SELECT copy_id FROM Loan WHERE id = NEW.loan_id);
+    -- Получаем ID статуса "Доступен"
+    SELECT id INTO available_status_id FROM CopyStatus WHERE name = 'Доступен';
+    -- При возврате меняем статус на "Доступен"
+    UPDATE Copy SET copy_status_id = available_status_id WHERE id = (SELECT copy_id FROM Loan WHERE id = NEW.loan_id);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Функция для проверки доступности экземпляра перед выдачей
+-- ВНИМАНИЕ: Такой триггер не может гарантировать соблюдение ограничения целостности
+-- в многопользовательской системе, так как одновременно может выполняться несколько операций.
+-- Для гарантии целостности рекомендуется использовать UNIQUE ограничения или блокировки.
 CREATE OR REPLACE FUNCTION check_copy_availability()
 RETURNS TRIGGER AS $$
 DECLARE
-    current_status INT;
+    current_status_id INT;
+    available_status_id INT;
 BEGIN
-    SELECT copy_status_id INTO current_status FROM Copy WHERE id = NEW.copy_id;
-    IF current_status != 1 THEN
-        RAISE EXCEPTION 'Экземпляр книги недоступен для выдачи (текущий статус: %)', current_status;
+    SELECT copy_status_id INTO current_status_id FROM Copy WHERE id = NEW.copy_id;
+    -- Получаем ID статуса "Доступен"
+    SELECT id INTO available_status_id FROM CopyStatus WHERE name = 'Доступен';
+    IF current_status_id != available_status_id THEN
+        RAISE EXCEPTION 'Экземпляр книги недоступен для выдачи (текущий статус ID: %)', current_status_id;
     END IF;
     RETURN NEW;
 END;
@@ -71,12 +85,10 @@ BEGIN
                 RETURN NEW;
             END IF;
             
-            -- Создаем штраф только если его еще нет
-            IF NOT EXISTS (SELECT 1 FROM Fine WHERE loan_id = NEW.loan_id) THEN
-                INSERT INTO Fine (loan_id, reason_id, notes)
-                VALUES (NEW.loan_id, overdue_reason_id, 
-                        'Просрочка возврата на ' || days_overdue || ' дней');
-            END IF;
+            -- Создаем штраф (может быть несколько штрафов за одну выдачу)
+            INSERT INTO Fine (loan_id, reason_id, notes)
+            VALUES (NEW.loan_id, overdue_reason_id, 
+                    'Просрочка возврата на ' || days_overdue || ' дней');
         END IF;
     END IF;
     RETURN NEW;
@@ -106,12 +118,16 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Функция для проверки даты смерти автора
+-- В соответствии с требованиями: дата смерти не менее чем через 5 лет после рождения
 CREATE OR REPLACE FUNCTION check_author_dates()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.death_date IS NOT NULL AND NEW.birth_date IS NOT NULL THEN
         IF NEW.death_date < NEW.birth_date THEN
             RAISE EXCEPTION 'Дата смерти не может быть раньше даты рождения';
+        END IF;
+        IF NEW.death_date < NEW.birth_date + INTERVAL '5 years' THEN
+            RAISE EXCEPTION 'Дата смерти должна быть не менее чем через 5 лет после рождения';
         END IF;
     END IF;
     RETURN NEW;
@@ -181,10 +197,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Функция для предотвращения двойного возврата
+-- ВНИМАНИЕ: Такой триггер не может гарантировать соблюдение ограничения целостности
+-- в многопользовательской системе. Для гарантии используется UNIQUE(loan_id) в таблице BookReturn.
 CREATE OR REPLACE FUNCTION prevent_double_return()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM Return WHERE loan_id = NEW.loan_id) THEN
+    IF EXISTS (SELECT 1 FROM BookReturn WHERE loan_id = NEW.loan_id) THEN
         RAISE EXCEPTION 'Книга уже была возвращена';
     END IF;
     RETURN NEW;
@@ -275,8 +293,8 @@ CREATE TRIGGER trigger_loan_updated_at
     BEFORE UPDATE ON Loan
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_return_updated_at
-    BEFORE UPDATE ON Return
+CREATE TRIGGER trigger_bookreturn_updated_at
+    BEFORE UPDATE ON BookReturn
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trigger_finereason_updated_at
@@ -303,17 +321,18 @@ CREATE TRIGGER trigger_check_copy_availability
 
 -- Триггер изменения статуса экземпляра при возврате
 CREATE TRIGGER trigger_update_copy_status_on_return
-    AFTER INSERT ON Return
+    AFTER INSERT ON BookReturn
     FOR EACH ROW EXECUTE FUNCTION update_copy_status_on_return();
 
 -- Триггер создания штрафа при просрочке
 CREATE TRIGGER trigger_create_fine_on_overdue
-    AFTER INSERT ON Return
+    AFTER INSERT ON BookReturn
     FOR EACH ROW EXECUTE FUNCTION create_fine_on_overdue();
 
 -- Триггер предотвращения двойного возврата
+-- ВНИМАНИЕ: Основная защита - UNIQUE(loan_id) в таблице BookReturn
 CREATE TRIGGER trigger_prevent_double_return
-    BEFORE INSERT ON Return
+    BEFORE INSERT ON BookReturn
     FOR EACH ROW EXECUTE FUNCTION prevent_double_return();
 
 -- Триггер проверки даты выдачи

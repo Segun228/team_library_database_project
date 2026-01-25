@@ -20,20 +20,21 @@ CREATE TABLE IF NOT EXISTS Roles (
 );
 
 -- 3. Employee
+-- Добавлены обязательные поля согласно требованиям
 CREATE TABLE IF NOT EXISTS Employee (
     id SERIAL PRIMARY KEY,
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
-    patronymic VARCHAR(255),
-    birth_date DATE,
-    hire_date DATE,
-    employee_status_id INT,
-    address TEXT,
-    email VARCHAR(255) UNIQUE,
-    phone VARCHAR(30),
-    login VARCHAR(200) UNIQUE,
-    role INT,
-    password_hash VARCHAR(255),
+    first_name VARCHAR(127) NOT NULL,
+    last_name VARCHAR(127) NOT NULL,
+    patronymic VARCHAR(127),
+    birth_date DATE NOT NULL,
+    hire_date DATE NOT NULL,
+    employee_status_id INT NOT NULL,
+    address TEXT NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    login VARCHAR(200) UNIQUE NOT NULL,
+    role INT NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (employee_status_id) REFERENCES EmployeeStatus(id),
@@ -49,16 +50,17 @@ CREATE TABLE IF NOT EXISTS ReaderStatus (
 );
 
 -- 5. Reader
+-- Добавлены обязательные поля согласно требованиям
 CREATE TABLE IF NOT EXISTS Reader (
     id SERIAL PRIMARY KEY,
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
-    patronymic VARCHAR(255),
-    birth_date DATE,
-    reader_status_id INT,
-    address TEXT,
-    email VARCHAR(255) UNIQUE,
-    phone VARCHAR(30),
+    first_name VARCHAR(127) NOT NULL,
+    last_name VARCHAR(127) NOT NULL,
+    patronymic VARCHAR(127),
+    birth_date DATE NOT NULL,
+    reader_status_id INT NOT NULL,
+    address TEXT NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(30) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reader_status_id) REFERENCES ReaderStatus(id)
@@ -73,24 +75,26 @@ CREATE TABLE IF NOT EXISTS CopyStatus (
 );
 
 -- 7. Publisher
+-- Добавлены обязательные поля согласно требованиям
 CREATE TABLE IF NOT EXISTS Publisher (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    address TEXT,
-    contact_phone VARCHAR(20),
-    contact_email VARCHAR(100),
+    address TEXT NOT NULL,
+    contact_phone VARCHAR(20) NOT NULL,
+    contact_email VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 8. Book
+-- Добавлены обязательные поля согласно требованиям
 CREATE TABLE IF NOT EXISTS Book (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    publisher_id INT,
-    isbn VARCHAR(20) UNIQUE,
-    publication_year INTEGER,
-    page_count INT,
+    publisher_id INT NOT NULL,
+    isbn VARCHAR(20) UNIQUE NOT NULL,
+    publication_year INTEGER NOT NULL,
+    page_count INT NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -101,9 +105,9 @@ CREATE TABLE IF NOT EXISTS Book (
 CREATE TABLE IF NOT EXISTS Copy (
     id SERIAL PRIMARY KEY,
     book_id INT NOT NULL,
-    copy_status_id INT,
+    copy_status_id INT NOT NULL,
     inventory_number VARCHAR(50) UNIQUE NOT NULL,
-    acquired_at DATE,
+    acquired_at DATE NOT NULL,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -209,6 +213,7 @@ CREATE TABLE IF NOT EXISTS Authorship (
 );
 
 -- 19. BookComposition
+-- Убрали ON DELETE CASCADE для composition_id: нельзя удалять произведение, если книга осталась
 CREATE TABLE IF NOT EXISTS BookComposition (
     id SERIAL PRIMARY KEY,
     composition_id INT NOT NULL,
@@ -216,36 +221,38 @@ CREATE TABLE IF NOT EXISTS BookComposition (
     position_in_book INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (composition_id) REFERENCES Composition(id) ON DELETE CASCADE,
+    FOREIGN KEY (composition_id) REFERENCES Composition(id) ON DELETE RESTRICT,
     FOREIGN KEY (book_id) REFERENCES Book(id) ON DELETE CASCADE,
     UNIQUE(composition_id, book_id)
 );
 
 -- 20. Loan
+-- Изменены внешние ключи: ON DELETE SET NULL для сохранения истории выдачи
+-- (нельзя терять информацию о выданных книгах при удалении записей)
 CREATE TABLE IF NOT EXISTS Loan (
     id SERIAL PRIMARY KEY,
-    copy_id INT NOT NULL,
-    reader_id INT NOT NULL,
-    employee_id INT NOT NULL,
+    copy_id INT,
+    reader_id INT,
+    employee_id INT,
     due_date DATE,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (copy_id) REFERENCES Copy(id) ON DELETE CASCADE,
-    FOREIGN KEY (reader_id) REFERENCES Reader(id) ON DELETE CASCADE,
-    FOREIGN KEY (employee_id) REFERENCES Employee(id) ON DELETE CASCADE
+    FOREIGN KEY (copy_id) REFERENCES Copy(id) ON DELETE SET NULL,
+    FOREIGN KEY (reader_id) REFERENCES Reader(id) ON DELETE SET NULL,
+    FOREIGN KEY (employee_id) REFERENCES Employee(id) ON DELETE SET NULL
 );
 
--- 21. Return
-CREATE TABLE IF NOT EXISTS Return (
+-- 21. BookReturn (переименовано из Return, так как Return - ключевое слово PostgreSQL)
+CREATE TABLE IF NOT EXISTS BookReturn (
     id SERIAL PRIMARY KEY,
     loan_id INT NOT NULL,
-    employee_id INT NOT NULL,
+    employee_id INT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (loan_id) REFERENCES Loan(id) ON DELETE CASCADE,
-    FOREIGN KEY (employee_id) REFERENCES Employee(id) ON DELETE CASCADE,
+    FOREIGN KEY (loan_id) REFERENCES Loan(id) ON DELETE RESTRICT,
+    FOREIGN KEY (employee_id) REFERENCES Employee(id) ON DELETE SET NULL,
     UNIQUE(loan_id)
 );
 
@@ -258,6 +265,7 @@ CREATE TABLE IF NOT EXISTS FineReason (
 );
 
 -- 23. Fine
+-- Убран UNIQUE(loan_id): может быть несколько штрафов за одну выдачу
 CREATE TABLE IF NOT EXISTS Fine (
     id SERIAL PRIMARY KEY,
     loan_id INT NOT NULL,
@@ -265,7 +273,6 @@ CREATE TABLE IF NOT EXISTS Fine (
     reason_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (loan_id) REFERENCES Loan(id) ON DELETE CASCADE,
-    FOREIGN KEY (reason_id) REFERENCES FineReason(id) ON DELETE CASCADE,
-    UNIQUE(loan_id)
+    FOREIGN KEY (loan_id) REFERENCES Loan(id) ON DELETE RESTRICT,
+    FOREIGN KEY (reason_id) REFERENCES FineReason(id) ON DELETE RESTRICT
 );

@@ -6,13 +6,9 @@
 -- ============================================
 -- СОЗДАНИЕ РОЛЕЙ
 -- ============================================
-
--- Роль администратора библиотеки (полный доступ)
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'library_admin') THEN
-        CREATE ROLE library_admin WITH LOGIN PASSWORD 'admin_pass_123';
-    END IF;
-END $$;
+-- ВНИМАНИЕ: Администратор базы данных (технический сотрудник) не является
+-- пользователем БД и не должен иметь доступа к пользовательским данным.
+-- Здесь перечислены только конечные пользователи системы.
 
 -- Роль библиотекаря (работа с книгами и читателями)
 DO $$ BEGIN
@@ -92,13 +88,6 @@ DO $$ BEGIN
 END $$;
 
 -- ============================================
--- ПРАВА ДЛЯ АДМИНИСТРАТОРА (полный доступ)
--- ============================================
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO library_admin;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO library_admin;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO library_admin;
-
--- ============================================
 -- ПРАВА ДЛЯ БИБЛИОТЕКАРЯ
 -- ============================================
 GRANT SELECT, INSERT, UPDATE ON EmployeeStatus TO librarian;
@@ -121,7 +110,7 @@ GRANT SELECT, INSERT, UPDATE ON Composition TO librarian;
 GRANT SELECT, INSERT, UPDATE ON Authorship TO librarian;
 GRANT SELECT, INSERT, UPDATE ON BookComposition TO librarian;
 GRANT SELECT, INSERT, UPDATE ON Loan TO librarian;
-GRANT SELECT, INSERT, UPDATE ON Return TO librarian;
+GRANT SELECT, INSERT, UPDATE ON BookReturn TO librarian;
 GRANT SELECT ON FineReason TO librarian;
 GRANT SELECT, INSERT, UPDATE ON Fine TO librarian;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO librarian;
@@ -222,7 +211,7 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO data_entry;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO supervisor;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO supervisor;
 GRANT DELETE ON Loan TO supervisor;
-GRANT DELETE ON Return TO supervisor;
+GRANT DELETE ON BookReturn TO supervisor;
 GRANT DELETE ON Fine TO supervisor;
 
 -- ============================================
