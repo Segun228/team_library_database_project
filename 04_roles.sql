@@ -4,11 +4,57 @@
 -- ============================================
 
 -- ============================================
--- СОЗДАНИЕ РОЛЕЙ
+-- ГРУППЫ ПОЛЬЗОВАТЕЛЕЙ И ИХ ЗАДАЧИ
 -- ============================================
 -- ВНИМАНИЕ: Администратор базы данных (технический сотрудник) не является
 -- пользователем БД и не должен иметь доступа к пользовательским данным.
 -- Здесь перечислены только конечные пользователи системы.
+--
+-- 1. Старший библиотекарь (senior_librarian)
+--    - Полное управление каталогом книг (добавление, изменение, удаление)
+--    - Управление читателями и их статусами
+--    - Выдача и возврат книг
+--    - Управление штрафами
+--    - Просмотр данных о сотрудниках
+--
+-- 2. Библиотекарь (librarian)
+--    - Работа с каталогом (просмотр, добавление, редактирование без удаления)
+--    - Работа с читателями (регистрация, изменение данных)
+--    - Выдача и возврат книг
+--    - Создание и изменение штрафов
+--
+-- 3. Менеджер (manager)
+--    - Управление персоналом (прием, изменение данных сотрудников)
+--    - Управление должностями и статусами сотрудников
+--    - Просмотр всех данных для контроля
+--
+-- 4. Супервизор (supervisor)
+--    - Исправление ошибок в операциях выдачи/возврата (удаление ошибочных записей)
+--    - Корректировка данных во всех таблицах
+--    - Просмотр всех данных
+--
+-- 5. Каталогизатор (cataloger)
+--    - Управление каталогом книг (добавление, изменение)
+--    - Управление экземплярами
+--    - Нет доступа к данным читателей и операциям выдачи
+--
+-- 6. Аналитик (analyst)
+--    - Только чтение всех данных для формирования отчетов
+--
+-- 7. Читатель (reader_role)
+--    - Просмотр каталога книг, авторов, жанров
+--    - Просмотр доступности экземпляров
+--
+-- 8. Гость (guest)
+--    - Минимальный просмотр: только книги, авторы, жанры, теги
+--
+-- 9. Ввод данных (data_entry)
+--    - Первичный ввод данных о книгах, авторах, читателях
+--    - Без возможности изменения и удаления
+--
+-- ============================================
+-- СОЗДАНИЕ РОЛЕЙ
+-- ============================================
 
 -- Роль библиотекаря (работа с книгами и читателями)
 DO $$ BEGIN
@@ -138,7 +184,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON Composition TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON Authorship TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON BookComposition TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON Loan TO senior_librarian;
-GRANT SELECT, INSERT, UPDATE, DELETE ON Return TO senior_librarian;
+GRANT SELECT, INSERT, UPDATE, DELETE ON BookReturn TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE ON FineReason TO senior_librarian;
 GRANT SELECT, INSERT, UPDATE, DELETE ON Fine TO senior_librarian;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO senior_librarian;
@@ -146,6 +192,7 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO senior_librarian;
 -- ============================================
 -- ПРАВА ДЛЯ ЧИТАТЕЛЯ (только просмотр каталога)
 -- ============================================
+-- Просмотр каталога: книги, авторы, жанры, издательства, наличие экземпляров
 GRANT SELECT ON Publisher TO reader_role;
 GRANT SELECT ON Book TO reader_role;
 GRANT SELECT ON Tags TO reader_role;
@@ -158,11 +205,15 @@ GRANT SELECT ON Author TO reader_role;
 GRANT SELECT ON Composition TO reader_role;
 GRANT SELECT ON Authorship TO reader_role;
 GRANT SELECT ON BookComposition TO reader_role;
+GRANT SELECT ON Copy TO reader_role;
 GRANT SELECT ON CopyStatus TO reader_role;
 
 -- ============================================
 -- ПРАВА ДЛЯ КАТАЛОГИЗАТОРА
 -- ============================================
+-- Управление каталогом: книги, авторы, издательства, жанры, теги, формы, произведения
+-- Работа с экземплярами книг
+-- Нет доступа к данным читателей и операциям выдачи
 GRANT SELECT, INSERT, UPDATE ON Publisher TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Book TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Copy TO cataloger;
@@ -176,11 +227,13 @@ GRANT SELECT, INSERT, UPDATE ON Author TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Composition TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON Authorship TO cataloger;
 GRANT SELECT, INSERT, UPDATE ON BookComposition TO cataloger;
+GRANT SELECT ON CopyStatus TO cataloger;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO cataloger;
 
 -- ============================================
 -- ПРАВА ДЛЯ АНАЛИТИКА (только чтение)
 -- ============================================
+-- Только чтение всех таблиц для формирования отчетов и анализа
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst;
 
 -- ============================================
@@ -197,17 +250,23 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 -- ============================================
 -- ПРАВА ДЛЯ ВВОДА ДАННЫХ
 -- ============================================
+-- Первичный ввод данных: книги, авторы, произведения, экземпляры, читатели, издательства
+-- Без возможности изменения и удаления
 GRANT SELECT, INSERT ON Publisher TO data_entry;
 GRANT SELECT, INSERT ON Book TO data_entry;
 GRANT SELECT, INSERT ON Copy TO data_entry;
 GRANT SELECT, INSERT ON Reader TO data_entry;
 GRANT SELECT, INSERT ON Author TO data_entry;
 GRANT SELECT, INSERT ON Composition TO data_entry;
+GRANT SELECT ON CopyStatus TO data_entry;
+GRANT SELECT ON ReaderStatus TO data_entry;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO data_entry;
 
 -- ============================================
 -- ПРАВА ДЛЯ СУПЕРВИЗОРА
 -- ============================================
+-- Исправление ошибок: чтение, вставка, обновление во всех таблицах
+-- Эксклюзивное право на удаление записей в операциях выдачи/возврата/штрафов
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO supervisor;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO supervisor;
 GRANT DELETE ON Loan TO supervisor;
@@ -225,6 +284,7 @@ GRANT SELECT ON Tags TO guest;
 -- ============================================
 -- ПРАВА ДЛЯ МЕНЕДЖЕРА
 -- ============================================
+-- Управление персоналом: просмотр всех данных, управление сотрудниками, должностями, статусами
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO manager;
 GRANT SELECT, INSERT, UPDATE ON Employee TO manager;
 GRANT SELECT, INSERT, UPDATE ON Roles TO manager;
